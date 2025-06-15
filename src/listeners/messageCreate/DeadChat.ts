@@ -106,10 +106,11 @@ export class DeadChat extends Listener {
 
     const assignDeadChat = messageMember.roles.add(DEADCHAT_ROLE);
     const removeDeadChat = Promise.all(
-      guildMembersWithDeadChat.map(member =>
+      [...guildMembersWithDeadChat.values()].map(member =>
         member.roles.remove(DEADCHAT_ROLE),
       ),
     );
+    // Assign the DEADCHAT role to the user and remove it from all others.
 
     await Promise.all([assignDeadChat, removeDeadChat]);
 
