@@ -47,10 +47,20 @@ export class DeadChat extends Listener {
     // Ignore messages that only contain emojis or are whitespace
     const content = eMessage.content.trim();
 
-    // Regex matches custom Discord emojis and unicode emojis
+    // Regex to match only emojis (Unicode or custom Discord ones)
     const onlyEmotesRegex = /^(?:<a?:\w+:\d+>|\p{Extended_Pictographic}|\s)+$/u;
 
-    if (content.length > 0 && onlyEmotesRegex.test(content)) {
+    const hasOnlyEmojis = content.length > 0 && onlyEmotesRegex.test(content);
+    const hasOnlyAttachments =
+      eMessage.attachments.size > 0 &&
+      content === '' &&
+      eMessage.stickers.size === 0;
+    const hasOnlyStickers =
+      eMessage.stickers.size > 0 &&
+      content === '' &&
+      eMessage.attachments.size === 0;
+
+    if (hasOnlyEmojis || hasOnlyAttachments || hasOnlyStickers) {
       return;
     }
 
