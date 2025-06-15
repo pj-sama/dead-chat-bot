@@ -66,7 +66,7 @@ export class DeadChat extends Listener {
       this.startedTimer = true;
 
       this.revivalInterval = setInterval(async () => {
-        if (Date.now() >= this.canReviveAt + 30) {
+        if (Date.now() >= messageCreatedTimestamp + Time.Minute * 60) {
           try {
             const generalChannel =
               await messageGuild.channels.fetch(GENERAL_CHANNEL_ID);
