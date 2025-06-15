@@ -68,7 +68,7 @@ export class DeadChat extends Listener {
     const chatWasRevived = messageCreatedTimestamp >= this.canReviveAt;
 
     // Update the next revive timestamp.
-    this.canReviveAt = messageCreatedTimestamp + Time.Minute * 1;
+    this.canReviveAt = messageCreatedTimestamp + Time.Minute * 60;
 
     // Go no further if #🚀｜general was not revived.
     if (!chatWasRevived) {
