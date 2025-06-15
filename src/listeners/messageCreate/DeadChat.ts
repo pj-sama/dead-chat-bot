@@ -66,12 +66,12 @@ export class DeadChat extends Listener {
       this.startedTimer = true;
 
       this.revivalInterval = setInterval(async () => {
-        if (Date.now() >= this.canReviveAt) {
+        if (Date.now() >= this.canReviveAt + 30) {
           try {
             const generalChannel =
               await messageGuild.channels.fetch(GENERAL_CHANNEL_ID);
             if (generalChannel?.isTextBased()) {
-              await generalChannel.send('Anyone home? 👀');
+              await generalChannel.send('👀');
             }
           } catch (err) {
             console.error('Error sending hint:', err);
