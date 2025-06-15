@@ -1,23 +1,19 @@
 // ./src/listeners/messageCreate/DeadChat.ts
 
-// ? This listener will assign @Dead Chat to a guild member if they send a message in #🚀｜general
-// ? after it has been inactive for 10 minutes.
-
 import {ApplyOptions} from '@sapphire/decorators';
 import {Events, Listener, UserError} from '@sapphire/framework';
-import {Guild, GuildMember, Message} from 'discord.js';
-import {MessageType} from 'discord.js';
+import {Guild, GuildMember, Message, MessageType} from 'discord.js';
 import {Time} from '@sapphire/duration';
 import 'dotenv/config';
 
-const listenerOptions = {
+@ApplyOptions<Listener.Options>({
   event: Events.MessageCreate,
-};
-
-@ApplyOptions<Listener.Options>(listenerOptions)
+})
 export class DeadChat extends Listener {
-  private canReviveAt = Date.now() + Time.Minute * 10;
+  private canReviveAt = Date.now() + Time.Minute * 30;
+  private startedTimer = false;
   private previousReply?: Message;
+  private revivalInterval?: NodeJS.Timeout;
 
   public async run(eMessage: Message) {
     const {
@@ -25,6 +21,7 @@ export class DeadChat extends Listener {
       channelId: messageChannelId,
       createdTimestamp: messageCreatedTimestamp,
     } = eMessage;
+
     const {
       guild: messageGuild,
       member: messageMember,
@@ -35,90 +32,89 @@ export class DeadChat extends Listener {
     const DEADCHAT_ROLE = process.env.DEADCHAT_ROLE;
 
     if (!GENERAL_CHANNEL_ID || !DEADCHAT_ROLE) {
-      console.error('Missing GENREAL ID or Dead Chat Role ID in .env');
+      console.error('Missing GENERAL_CHANNEL_ID or DEADCHAT_ROLE in .env');
       return;
     }
 
-    // Ignore messages that are:
-    // • From bots.
-    // • Not in #🚀｜general.
-    // • User join messages.
-    if (messageAuthor.bot) {
-      return;
-    } else if (messageChannelId !== GENERAL_CHANNEL_ID) {
-      return;
-    } else if (messageType === MessageType.UserJoin) {
+    // Ignore messages from bots, not in #general, or user join messages.
+    if (
+      messageAuthor.bot ||
+      messageChannelId !== GENERAL_CHANNEL_ID ||
+      messageType === MessageType.UserJoin
+    ) {
       return;
     }
 
-    // Type-check(s) — they will never be thrown.
     if (!(messageGuild instanceof Guild)) {
       throw new UserError({
         identifier: __filename,
         message: '"messageGuild" must be a Guild.',
       });
-    } else if (!(messageMember instanceof GuildMember)) {
+    }
+
+    if (!(messageMember instanceof GuildMember)) {
       throw new UserError({
         identifier: __filename,
         message: '"messageMember" must be a GuildMember.',
       });
     }
 
-    // Check if #🚀｜general was revived.
     const chatWasRevived = messageCreatedTimestamp >= this.canReviveAt;
+    this.canReviveAt = messageCreatedTimestamp + Time.Minute * 30;
 
-    // Update the next revive timestamp.
-    this.canReviveAt = messageCreatedTimestamp + Time.Minute * 60;
+    if (!this.startedTimer) {
+      this.startedTimer = true;
 
-    // Go no further if #🚀｜general was not revived.
+      this.revivalInterval = setInterval(async () => {
+        if (Date.now() >= this.canReviveAt) {
+          try {
+            const generalChannel =
+              await messageGuild.channels.fetch(GENERAL_CHANNEL_ID);
+            if (generalChannel?.isTextBased()) {
+              await generalChannel.send('Anyone home? 👀');
+            }
+          } catch (err) {
+            console.error('Error sending hint:', err);
+          } finally {
+            clearInterval(this.revivalInterval);
+            this.startedTimer = false;
+            this.revivalInterval = undefined;
+          }
+        }
+      }, 10_000);
+    }
+
     if (!chatWasRevived) {
       return;
     }
 
-    // Check if the member already has @Dead Chat.
     const memberHasDeadChat = messageMember.roles.cache.has(DEADCHAT_ROLE);
-
-    // Go no further if the member already has @Dead Chat.
     if (memberHasDeadChat) {
       return;
     }
 
     const [reply] = await Promise.all([
-      // Provide feedback.
       eMessage.reply({
         content: 'Hang on a second…',
       }),
-
-      // Delete the previous reply, if one exists.
       this.previousReply?.delete().catch(error => (console.error(error), null)),
     ]);
 
-    // Get all guild members with @Dead Chat.
-    const guildMembersWithDeadChat = messageGuild.members.cache.filter(
-      guildMember => guildMember.roles.cache.has(DEADCHAT_ROLE),
+    const guildMembersWithDeadChat = messageGuild.members.cache.filter(member =>
+      member.roles.cache.has(DEADCHAT_ROLE),
     );
 
-    // Assign @Dead Chat to the author of the message.
-    const assignDeadChat = (async () => {
-      await messageMember.roles.add(DEADCHAT_ROLE);
-    })();
+    const assignDeadChat = messageMember.roles.add(DEADCHAT_ROLE);
+    const removeDeadChat = Promise.all(
+      guildMembersWithDeadChat.map(member =>
+        member.roles.remove(DEADCHAT_ROLE),
+      ),
+    );
 
-    // If anyone has @Dead Chat, remove it from them.
-    const removeDeadChat = (async () => {
-      await Promise.all(
-        guildMembersWithDeadChat.map(
-          guildMemberWithDeadChat =>
-            guildMemberWithDeadChat.roles.remove(DEADCHAT_ROLE), // Prettier is stubborn.
-        ),
-      );
-    })();
-
-    // Wait for both of the above tasks to complete.
     await Promise.all([assignDeadChat, removeDeadChat]);
 
-    // Provide feedback.
     await reply.edit({
-      content: `You've stolen the <@&${DEADCHAT_ROLE}> role.`, // prettier-ignore
+      content: `You've stolen the <@&${DEADCHAT_ROLE}> role.`,
     });
 
     this.previousReply = reply;
