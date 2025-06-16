@@ -44,6 +44,14 @@ export class DeadChat extends Listener {
     ) {
       return;
     }
+    // Ignore messages from a specific user.
+
+    if (messageAuthor.id === process.env.IGNORE_USER_ID) {
+      console.log(
+        `Ignoring message from user ${messageAuthor.tag} in #general channel.`,
+      );
+      return;
+    }
     // Ignore messages that only contain emojis or are whitespace
     const content = eMessage.content.trim();
 
