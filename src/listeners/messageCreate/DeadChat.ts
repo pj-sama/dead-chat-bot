@@ -17,7 +17,8 @@ const listenerOptions = {
 
 @ApplyOptions<Listener.Options>(listenerOptions)
 export class DeadChat extends Listener {
-  private canReviveAt = Date.now() + Time.Minute * 15; // Initial time when the chat can be revived (15 minutes from now).
+  // Initial time when the chat is considered dead so thatcan be revived (15 minutes from now).
+  private timeOfDeath = Date.now() + Time.Minute * 15;
   private previousReply?: Message;
 
   public async run(eMessage: Message) {
@@ -34,11 +35,8 @@ export class DeadChat extends Listener {
 
     // Ignore messages that are:
     // • From bots.
-    // • Not in #🚀｜general.
+    // • Not in specified channel.
     // • User join messages.
-    // • Not a regular message (e.g. a thread starter).
-    // • Not a message that can be revived.
-    // • Not a message that can be revived
     if (messageAuthor.bot) {
       return;
     } else if (messageChannelId !== process.env.GENERAL_CHANNEL_ID) {
@@ -72,38 +70,9 @@ export class DeadChat extends Listener {
       return;
     }
 
-    // Send a reminder if someone could have stolen the role but didn't for more than 15 minutes
-    const now = Date.now();
-    const timeSinceCanRevive = now - this.canReviveAt;
-    if (timeSinceCanRevive > Time.Minute * 15) {
-      console.log("It's up for grabs!");
-      if (
-        'send' in eMessage.channel &&
-        typeof eMessage.channel.send === 'function'
-      ) {
-        const hints = [
-          '👀',
-          '<:rexx_pwease:1352306779412893747>',
-          ':bobacatsip:',
-          ':SoftieArrive:',
-          ':nko_wave:',
-          '<:nko_think_confused:1275470067567558666>',
-          ':Rain:',
-          ':nko_arrive:',
-          ':nko_leave:',
-          ':nko_cry:',
-          ':BMODancing:',
-          // Lastly a funny hint to make it more engaging
-          "Guys I got softie's credit card <:nko_yay:1275470075314311272>",
-        ];
-        const randomHint = hints[Math.floor(Math.random() * hints.length)];
-
-        eMessage.channel.send(randomHint).catch(console.error);
-      }
-    }
     //ignore messages from a specific user
     if (messageAuthor.id === process.env.IGNORE_USER_ID) {
-      console.log('A message came in from someone I want to ignore');
+      console.log('Chat was is still dying, ingored user.');
       return;
     }
     // Type-check(s) — they will never be thrown.
@@ -119,40 +88,39 @@ export class DeadChat extends Listener {
       });
     }
 
-    // Check if #🚀｜general was revived.
-    const chatWasRevived = messageCreatedTimestamp >= this.canReviveAt;
-
-    // Go no further if #🚀｜general was not revived.
-    if (!chatWasRevived) {
-      console.log(
-        'Main was not actually dead. Chat will be dead if no reply by ' +
-          new Date(this.canReviveAt).toLocaleTimeString(),
-      );
-      return;
-    }
-
-    // Update the next revive timestamp to a random time between 15 and 60 minutes.
-
-    this.canReviveAt =
-      messageCreatedTimestamp +
-      Time.Minute * (Math.floor(Math.random() * 46) + 15);
-    console.log(
-      `The chat has been revived! Now the next revive can happen at ${new Date(this.canReviveAt).toLocaleTimeString()}`,
-    );
-
-    // The chat was revived; proceed to assign the role.
-
     // Check if the member already has @Dead Chat.
     const memberHasDeadChat = messageMember.roles.cache.has(DEADCHAT_ROLE_ID);
 
     // Go no further if the member already has @Dead Chat.
     if (memberHasDeadChat) {
       console.log(
-        `${messageMember.user.tag} (${messageMember.id}) already has @Dead Chat. Now the next revive can happen at ${new Date(this.canReviveAt).toLocaleTimeString()}`,
+        `${messageMember.user.tag} (${messageMember.id}) already has @Dead Chat. The chat will be  at ${new Date(this.timeOfDeath).toLocaleTimeString()}`,
       );
       return;
     }
 
+    // Check if #🚀｜general was revived.
+    const wasChatRevived = messageCreatedTimestamp >= this.timeOfDeath;
+
+    // Update the next revive timestamp to a random time between 15 and 60 minutes.
+
+    this.timeOfDeath =
+      messageCreatedTimestamp +
+      Time.Minute * (Math.floor(Math.random() * 46) + 15);
+    console.log(
+      `The chat has been revived! Now the chat will be considered dead at ${new Date(this.timeOfDeath).toLocaleTimeString()}`,
+    );
+
+    // Go no further if #🚀｜general was not revived.
+    if (!wasChatRevived) {
+      console.log(
+        'Main was not actually dead. Chat will be dead if no reply by ' +
+          new Date(this.timeOfDeath).toLocaleTimeString(),
+      );
+      return;
+    }
+
+    // CONGRATULATIONS! THE CHAT WAS DEAD BUT NOW IT HAS BEEN REVIVED!
     const [reply] = await Promise.all([
       // Provide feedback.
       eMessage.reply({
@@ -171,7 +139,7 @@ export class DeadChat extends Listener {
     // Assign @Dead Chat to the author of the message.
     const assignDeadChat = messageMember.roles.add(DEADCHAT_ROLE_ID);
 
-    // If anyone has @Dead Chat, remove it from them and output a message to console for error and success!
+    // Get a list of all the users with @deadchat role, iterate through themm and remove the role from thema and log success. If there are any errors, log them too!
     const removeDeadChat = Promise.all(
       guildMembersWithDeadChat.map(guildMember =>
         guildMember.roles
