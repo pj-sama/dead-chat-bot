@@ -30,7 +30,6 @@ export class PurgeOnRoleAssign extends Listener {
       newMember.roles.cache.has(this.TARGET_ROLE_ID);
 
     console.log('Just received target role:', justReceivedRole);
-
     if (!justReceivedRole) return;
 
     const channel = await newMember.guild.channels.fetch(this.CHANNEL_ID);
@@ -47,7 +46,9 @@ export class PurgeOnRoleAssign extends Listener {
     console.log(`Fetched ${messages.size} messages from channel ${channel.id}`);
 
     const botMessage = messages.find(
-      msg => msg.author.id === newMember.client.user?.id,
+      msg =>
+        msg.author.id === newMember.client.user?.id ||
+        (msg.webhookId && msg.webhookId !== null && msg.author.bot),
     );
 
     if (!botMessage) {
