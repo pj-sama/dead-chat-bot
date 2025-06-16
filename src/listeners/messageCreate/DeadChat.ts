@@ -64,7 +64,6 @@ export class DeadChat extends Listener {
     if (hasOnlyEmojis || hasOnlyAttachments || hasOnlyStickers) {
       return;
     }
-
     // Ignore messages from a user who already has @Dead Chat.
     if (!messageMember || messageMember.roles.cache.has(DEADCHAT_ROLE_ID)) {
       return;
@@ -91,12 +90,9 @@ export class DeadChat extends Listener {
     // Check if #🚀｜general was revived.
     const wasChatDead = messageCreatedTimestamp >= this.timeOfDeath;
 
-    // Update the next revive timestamp to a random time between 15 and 60 minutes.
+    // Update the next revive timestamp to 15 from no.
 
-    // this.timeOfDeath =
-    //   messageCreatedTimestamp +
-    //   Time.Minute * (Math.floor(Math.random() * 46) + 15);
-    this.timeOfDeath = Date.now() + Time.Minute * 30; // Set to 30 minutes for testing purposes);
+    this.timeOfDeath = Date.now() + Time.Minute * 15;
 
     // Go no further if #🚀｜general was not revived.
     if (!wasChatDead) {
