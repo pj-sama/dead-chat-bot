@@ -17,7 +17,7 @@ const listenerOptions = {
 
 @ApplyOptions<Listener.Options>(listenerOptions)
 export class DeadChat extends Listener {
-  private canReviveAt = Date.now() + Time.Minute * 0; // Initial time when the chat can be revived (15 minutes from now).
+  private canReviveAt = Date.now() + Time.Minute * 15; // Initial time when the chat can be revived (15 minutes from now).
   private previousReply?: Message;
 
   public async run(eMessage: Message) {
