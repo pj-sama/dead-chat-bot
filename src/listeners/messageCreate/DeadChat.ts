@@ -103,6 +103,7 @@ export class DeadChat extends Listener {
     }
     //ignore messages from a specific user
     if (messageAuthor.id === process.env.IGNORE_USER_ID) {
+      console.log('A message came in from someone I want to ignore');
       return;
     }
     // Type-check(s) — they will never be thrown.
@@ -121,21 +122,20 @@ export class DeadChat extends Listener {
     // Check if #🚀｜general was revived.
     const chatWasRevived = messageCreatedTimestamp >= this.canReviveAt;
 
-    // Update the next revive timestamp to a random time between 15 and 60 minutes.
-
-    this.canReviveAt =
-      messageCreatedTimestamp +
-      Time.Minute * (Math.floor(Math.random() * 46) + 15);
-    // prettier-ignore
-    console.log(
-      `Next revive can happen at ${new Date(this.canReviveAt).toLocaleTimeString()}`,
-    );
-
     // Go no further if #🚀｜general was not revived.
     if (!chatWasRevived) {
       console.log('Main was not revived.');
       return;
     }
+
+    // Update the next revive timestamp to a random time between 15 and 60 minutes.
+
+    this.canReviveAt =
+      messageCreatedTimestamp +
+      Time.Minute * (Math.floor(Math.random() * 46) + 15);
+    console.log(
+      `Next revive can happen at ${new Date(this.canReviveAt).toLocaleTimeString()}`,
+    );
 
     // The chat was revived; proceed to assign the role.
 
@@ -144,6 +144,9 @@ export class DeadChat extends Listener {
 
     // Go no further if the member already has @Dead Chat.
     if (memberHasDeadChat) {
+      console.log(
+        `${messageMember.user.tag} (${messageMember.id}) already has @Dead Chat.`,
+      );
       return;
     }
 
