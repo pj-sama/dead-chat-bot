@@ -72,7 +72,7 @@ export class DeadChat extends Listener {
 
     //ignore messages from a specific user
     if (messageAuthor.id === process.env.IGNORE_USER_ID) {
-      console.log('Chat was is still dying, ingored user.');
+      console.log('Chat is still dying, ignored user.');
       return;
     }
     // Type-check(s) — they will never be thrown.
@@ -93,14 +93,15 @@ export class DeadChat extends Listener {
 
     // Update the next revive timestamp to a random time between 15 and 60 minutes.
 
-    this.timeOfDeath =
-      messageCreatedTimestamp +
-      Time.Minute * (Math.floor(Math.random() * 46) + 15);
+    // this.timeOfDeath =
+    //   messageCreatedTimestamp +
+    //   Time.Minute * (Math.floor(Math.random() * 46) + 15);
+    this.timeOfDeath = Date.now() + Time.Minute * 30; // Set to 30 minutes for testing purposes);
 
     // Go no further if #🚀｜general was not revived.
     if (!wasChatDead) {
       console.log(
-        'Main was not actually dead. Chat will be dead if no reply by ' +
+        'Main is alive for now! Chat will be dead if no reply by ' +
           new Date(this.timeOfDeath).toLocaleTimeString(),
       );
       return;
