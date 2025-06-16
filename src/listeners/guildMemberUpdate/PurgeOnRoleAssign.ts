@@ -46,9 +46,7 @@ export class PurgeOnRoleAssign extends Listener {
     console.log(`Fetched ${messages.size} messages from channel ${channel.id}`);
 
     const botMessage = messages.find(
-      msg =>
-        msg.author.id === newMember.client.user?.id ||
-        (msg.webhookId && msg.webhookId !== null && msg.author.bot),
+      msg => msg.author.bot || msg.webhookId !== null,
     );
 
     if (!botMessage) {
