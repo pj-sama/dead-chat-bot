@@ -11,9 +11,8 @@ import 'dotenv/config';
 })
 export class DeadChat extends Listener {
   private canReviveAt = Date.now() + Time.Minute * 30;
-  private startedTimer = false;
   private previousReply?: Message;
-  private revivalInterval?: NodeJS.Timeout;
+  private revivalTimeout?: NodeJS.Timeout;
 
   public async run(eMessage: Message) {
     const {
@@ -102,50 +101,43 @@ export class DeadChat extends Listener {
     const chatWasRevived = messageCreatedTimestamp >= this.canReviveAt;
     this.canReviveAt = messageCreatedTimestamp + Time.Minute * 30;
 
-    if (!this.startedTimer) {
-      // Clear any existing interval before starting a new one
-      if (this.revivalInterval) {
-        clearInterval(this.revivalInterval);
-        this.revivalInterval = undefined;
-      }
-      this.startedTimer = true;
-
-      this.revivalInterval = setInterval(async () => {
-        if (Date.now() >= messageCreatedTimestamp + Time.Minute * 30) {
-          try {
-            const generalChannel =
-              await messageGuild.channels.fetch(GENERAL_CHANNEL_ID);
-            if (generalChannel?.isTextBased()) {
-              console.log(
-                `Sending hint in #general channel: ${generalChannel.name}`,
-              );
-              // Send a hint in the #general channel after specified minutes of inactivity.
-              // Choose a random hint from the hints array.
-              const hints = [
-                '👀',
-                '<:rexx_pwease:1352306779412893747>',
-                '<:bobacatsip:1274756500740374528>',
-                '<:SoftieArrive:1338954851371192372>',
-                '<:nko_wave:1275443699035148410>',
-                '<:nko_think_confused:1275470067567558666>',
-                '<:Rain:1383245182429958335>',
-                '<:nko_arrive:1275443671621308477>',
-              ];
-              const randomHint =
-                hints[Math.floor(Math.random() * hints.length)];
-              await generalChannel.send(randomHint);
-            }
-          } catch (err) {
-            console.error('Error sending hint:', err); // Log the error if sending the hint fails
-          } finally {
-            clearInterval(this.revivalInterval);
-            this.startedTimer = false;
-            this.revivalInterval = undefined;
-          }
-        }
-      }, 10_000);
+    // Clear any existing inactivity timeout and set a new one
+    if (this.revivalTimeout) {
+      clearTimeout(this.revivalTimeout);
+      this.revivalTimeout = undefined;
     }
-    // If the chat was revived, we check if the user has the DEADCHAT role.
+    this.revivalTimeout = setTimeout(async () => {
+      try {
+        const generalChannel =
+          await messageGuild.channels.fetch(GENERAL_CHANNEL_ID);
+        if (generalChannel?.isTextBased()) {
+          console.log(
+            `Sending hint in #general channel: ${generalChannel.name}`,
+          );
+          const hints = [
+            '👀',
+            '<:rexx_pwease:1352306779412893747>',
+            '<:bobacatsip:1274756500740374528>',
+            '<:SoftieArrive:1338954851371192372>',
+            '<:nko_wave:1275443699035148410>',
+            '<:nko_think_confused:1275470067567558666>',
+            '<:Rain:1383245182429958335>',
+            '<:nko_arrive:1275443671621308477>',
+            '<:nko_leave:1275439040358780930>',
+            '<:nko_cry:1275439040358780930>',
+            '<:BMODancing:1303882670702596187>',
+            // Lastly a funny hint to make it more engaging
+            "Guys I got softie's credit card <:nko_yay:1275470075314311272>",
+          ];
+          const randomHint = hints[Math.floor(Math.random() * hints.length)];
+          await generalChannel.send(randomHint);
+        }
+      } catch (err) {
+        console.error('Error sending hint:', err);
+      } finally {
+        this.revivalTimeout = undefined;
+      }
+    }, Time.Minute * 30);
     // If the user has the DEADCHAT role, we do nothing.
     // If the user does not have the DEADCHAT role, we assign it to them and remove it from all others.
     if (!chatWasRevived) {
