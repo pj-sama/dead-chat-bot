@@ -1,18 +1,24 @@
 // ./src/listeners/messageCreate/DeadChat.ts
 
+// ? This listener will assign @DEADCHAT_ROLE to a guild member if they send a message in #GENERAL_CHANNEL_ID
+// ? after it has been inactive for INACTIVITY_TIME minutes.
+
 import {ApplyOptions} from '@sapphire/decorators';
 import {Events, Listener, UserError} from '@sapphire/framework';
 import {Guild, GuildMember, Message, MessageType} from 'discord.js';
 import {Time} from '@sapphire/duration';
 import 'dotenv/config';
 
-@ApplyOptions<Listener.Options>({
+const DEADCHAT_ROLE_ID = process.env.DEADCHAT_ROLE_ID as string;
+
+const listenerOptions = {
   event: Events.MessageCreate,
-})
+};
+
+@ApplyOptions<Listener.Options>(listenerOptions)
 export class DeadChat extends Listener {
-  private canReviveAt = Date.now() + Time.Minute * 30;
+  private canReviveAt = Date.now() + Time.Minute * 15; // Initial time when the chat can be revived (15 minutes from now).
   private previousReply?: Message;
-  private revivalTimeout?: NodeJS.Timeout;
 
   public async run(eMessage: Message) {
     const {
@@ -20,46 +26,31 @@ export class DeadChat extends Listener {
       channelId: messageChannelId,
       createdTimestamp: messageCreatedTimestamp,
     } = eMessage;
-
     const {
       guild: messageGuild,
       member: messageMember,
       type: messageType,
     } = eMessage;
 
-    const GENERAL_CHANNEL_ID = process.env.GENERAL_CHANNEL_ID;
-    const DEADCHAT_ROLE = process.env.DEADCHAT_ROLE;
-
-    if (!GENERAL_CHANNEL_ID || !DEADCHAT_ROLE) {
-      console.error('Missing GENERAL_CHANNEL_ID or DEADCHAT_ROLE in .env');
+    // Ignore messages that are:
+    // • From bots.
+    // • Not in #🚀｜general.
+    // • User join messages.
+    // • Not a regular message (e.g. a thread starter).
+    // • Not a message that can be revived.
+    // • Not a message that can be revived
+    if (messageAuthor.bot) {
+      return;
+    } else if (messageChannelId !== process.env.GENERAL_CHANNEL_ID) {
+      return;
+    } else if (messageType === MessageType.UserJoin) {
       return;
     }
 
-    // Ignore messages from bots, not in #general, or user join messages.
-    if (
-      messageAuthor.bot ||
-      messageChannelId !== GENERAL_CHANNEL_ID ||
-      messageType === MessageType.UserJoin
-    ) {
-      return;
-    }
-    // Ignore messages from a specific user.
-
-    if (messageAuthor.id === process.env.IGNORE_USER_ID) {
-      console.log(
-        `Ignoring message from user ${messageAuthor.tag} in #general channel.`,
-      );
-      return;
-    }
-    // Ignore messages that only contain emojis or are whitespace
+    // Ignore messages that only contain emojis, attachments, or stickers
     const content = eMessage.content.trim();
 
-    // Regex to check if the message contains only emojis, emotes, or whitespace.
-    // This regex matches:
-    // - Custom emotes in the format <a:emote_name:id> or <:emote_name:id>
-    // - Unicode emojis (including extended pictographic characters)
-    // - Whitespace characters
-    // It does not match any other characters, ensuring that the message is purely emojis or whitespace.
+    // Regex to match only emojis (Unicode or custom Discord ones)
     const onlyEmotesRegex = /^(?:<a?:\w+:\d+>|\p{Extended_Pictographic}|\s)+$/u;
 
     const hasOnlyEmojis = content.length > 0 && onlyEmotesRegex.test(content);
@@ -75,111 +66,129 @@ export class DeadChat extends Listener {
     if (hasOnlyEmojis || hasOnlyAttachments || hasOnlyStickers) {
       return;
     }
-    // Ensure that messageGuild and messageMember are valid Guild and GuildMember instances.
+
+    // Ignore messages from a user who already has @Dead Chat.
+    if (!messageMember || messageMember.roles.cache.has(DEADCHAT_ROLE_ID)) {
+      return;
+    }
+
+    // Send a reminder if someone could have stolen the role but didn't for more than 15 minutes
+    const now = Date.now();
+    const timeSinceCanRevive = now - this.canReviveAt;
+    if (timeSinceCanRevive > Time.Minute * 15) {
+      console.log("It's up for grabs!");
+      if (
+        'send' in eMessage.channel &&
+        typeof eMessage.channel.send === 'function'
+      ) {
+        const hints = [
+          '👀',
+          '<:rexx_pwease:1352306779412893747>',
+          ':bobacatsip:',
+          ':SoftieArrive:',
+          ':nko_wave:',
+          '<:nko_think_confused:1275470067567558666>',
+          ':Rain:',
+          ':nko_arrive:',
+          ':nko_leave:',
+          ':nko_cry:',
+          ':BMODancing:',
+          // Lastly a funny hint to make it more engaging
+          "Guys I got softie's credit card <:nko_yay:1275470075314311272>",
+        ];
+        const randomHint = hints[Math.floor(Math.random() * hints.length)];
+
+        eMessage.channel.send(randomHint).catch(console.error);
+      }
+    }
+    //ignore messages from a specific user
+    if (messageAuthor.id === process.env.IGNORE_USER_ID) {
+      return;
+    }
+    // Type-check(s) — they will never be thrown.
     if (!(messageGuild instanceof Guild)) {
       throw new UserError({
         identifier: __filename,
         message: '"messageGuild" must be a Guild.',
       });
-    }
-
-    if (!(messageMember instanceof GuildMember)) {
+    } else if (!(messageMember instanceof GuildMember)) {
       throw new UserError({
         identifier: __filename,
         message: '"messageMember" must be a GuildMember.',
       });
     }
 
-    // We check if the chat was revived by comparing the message's created timestamp
-    // with the time we can revive the chat. If the message was created after
-    // the revival time, we consider it a revival.
-    // We also set the revival time to 30 minutes after the message was created.
-    // This means that the chat can be revived every 30 minutes.
-    // If the chat was revived, we start a timer that will send a hint in the #general channel
-    // after 60 minutes of inactivity.
-
+    // Check if #🚀｜general was revived.
     const chatWasRevived = messageCreatedTimestamp >= this.canReviveAt;
-    this.canReviveAt = messageCreatedTimestamp + Time.Minute * 30;
 
-    // Clear any existing inactivity timeout and set a new one
-    if (this.revivalTimeout) {
-      clearTimeout(this.revivalTimeout);
-      this.revivalTimeout = undefined;
-    }
-    this.revivalTimeout = setTimeout(async () => {
-      try {
-        const generalChannel =
-          await messageGuild.channels.fetch(GENERAL_CHANNEL_ID);
-        if (generalChannel?.isTextBased()) {
-          console.log(
-            `Sending hint in #general channel: ${generalChannel.name}`,
-          );
-          const hints = [
-            '👀',
-            '<:rexx_pwease:1352306779412893747>',
-            '<:bobacatsip:1274756500740374528>',
-            '<:SoftieArrive:1338954851371192372>',
-            '<:nko_wave:1275443699035148410>',
-            '<:nko_think_confused:1275470067567558666>',
-            '<:Rain:1383245182429958335>',
-            '<:nko_arrive:1275443671621308477>',
-            '<:nko_leave:1275439040358780930>',
-            '<:nko_cry:1275439040358780930>',
-            '<:BMODancing:1303882670702596187>',
-            // Lastly a funny hint to make it more engaging
-            "Guys I got softie's credit card <:nko_yay:1275470075314311272>",
-          ];
-          const randomHint = hints[Math.floor(Math.random() * hints.length)];
-          await generalChannel.send(randomHint);
-        }
-      } catch (err) {
-        console.error('Error sending hint:', err);
-      } finally {
-        this.revivalTimeout = undefined;
-      }
-    }, Time.Minute * 30);
-    // If the user has the DEADCHAT role, we do nothing.
-    // If the user does not have the DEADCHAT role, we assign it to them and remove it from all others.
+    // Update the next revive timestamp to a random time between 15 and 60 minutes.
+
+    this.canReviveAt =
+      messageCreatedTimestamp +
+      Time.Minute * (Math.floor(Math.random() * 46) + 15);
+    // prettier-ignore
+    console.log(
+      `Next revive can happen at ${new Date(this.canReviveAt).toLocaleTimeString()}`,
+    );
+
+    // Go no further if #🚀｜general was not revived.
     if (!chatWasRevived) {
-      console.log(
-        `Chat was not revived. Can revive at: ${new Date(this.canReviveAt).toLocaleTimeString()}`,
-      );
+      console.log('Main was not revived.');
       return;
     }
 
-    const memberHasDeadChat = messageMember.roles.cache.has(DEADCHAT_ROLE);
+    // The chat was revived; proceed to assign the role.
+
+    // Check if the member already has @Dead Chat.
+    const memberHasDeadChat = messageMember.roles.cache.has(DEADCHAT_ROLE_ID);
+
+    // Go no further if the member already has @Dead Chat.
     if (memberHasDeadChat) {
-      console.log(
-        `User ${messageAuthor.tag} already has the DEADCHAT role. No action taken.`,
-      );
       return;
     }
 
     const [reply] = await Promise.all([
+      // Provide feedback.
       eMessage.reply({
         content: 'Hang on a second…',
       }),
+
+      // Delete the previous reply, if one exists.
       this.previousReply?.delete().catch(error => (console.error(error), null)),
     ]);
 
-    const guildMembersWithDeadChat = messageGuild.members.cache.filter(member =>
-      member.roles.cache.has(DEADCHAT_ROLE),
+    // Get all guild members with @Dead Chat.
+    const guildMembersWithDeadChat = messageGuild.members.cache.filter(
+      guildMember => guildMember.roles.cache.has(DEADCHAT_ROLE_ID),
     );
 
-    const assignDeadChat = messageMember.roles.add(DEADCHAT_ROLE);
-    // Assign the DEADCHAT role to the user and remove it from all others.
+    // Assign @Dead Chat to the author of the message.
+    const assignDeadChat = messageMember.roles.add(DEADCHAT_ROLE_ID);
+
+    // If anyone has @Dead Chat, remove it from them and output a message to console for error and success!
     const removeDeadChat = Promise.all(
-      [...guildMembersWithDeadChat.values()].map(member => {
-        console.log(`Removed DEADCHAT role from user ${member.user.tag}`);
-        return member.roles.remove(DEADCHAT_ROLE);
-      }),
+      guildMembersWithDeadChat.map(guildMember =>
+        guildMember.roles
+          .remove(DEADCHAT_ROLE_ID)
+          .then(() => {
+            console.log(
+              `Removed @Dead Chat from ${guildMember.user.tag} (${guildMember.id})`,
+            );
+          })
+          .catch(error => {
+            console.error(
+              `Failed to remove @Dead Chat from ${guildMember.user.tag} (${guildMember.id}): ${error.message}`,
+            );
+          }),
+      ),
     );
-    // Assign the DEADCHAT role to the user and remove it from all others.
 
+    // Wait for both of the above tasks to complete.
     await Promise.all([assignDeadChat, removeDeadChat]);
 
+    // Provide feedback.
     await reply.edit({
-      content: `You've stolen the <@&${DEADCHAT_ROLE}> role.`,
+      content: `You've stolen the <@&${DEADCHAT_ROLE_ID}> role.`, // prettier-ignore
     });
 
     this.previousReply = reply;
