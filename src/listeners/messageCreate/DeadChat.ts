@@ -17,7 +17,7 @@ const listenerOptions = {
 
 @ApplyOptions<Listener.Options>(listenerOptions)
 export class DeadChat extends Listener {
-  private canReviveAt = Date.now() + Time.Minute * 15; // Initial time when the chat can be revived (15 minutes from now).
+  private canReviveAt = Date.now() + Time.Minute * 0; // Initial time when the chat can be revived (15 minutes from now).
   private previousReply?: Message;
 
   public async run(eMessage: Message) {
@@ -124,7 +124,10 @@ export class DeadChat extends Listener {
 
     // Go no further if #🚀｜general was not revived.
     if (!chatWasRevived) {
-      console.log('Main was not revived.');
+      console.log(
+        'Main was not actually dead. Chat will be dead if no reply by ' +
+          new Date(this.canReviveAt).toLocaleTimeString(),
+      );
       return;
     }
 
@@ -134,7 +137,7 @@ export class DeadChat extends Listener {
       messageCreatedTimestamp +
       Time.Minute * (Math.floor(Math.random() * 46) + 15);
     console.log(
-      `Next revive can happen at ${new Date(this.canReviveAt).toLocaleTimeString()}`,
+      `The chat has been revived! Now the next revive can happen at ${new Date(this.canReviveAt).toLocaleTimeString()}`,
     );
 
     // The chat was revived; proceed to assign the role.
@@ -145,7 +148,7 @@ export class DeadChat extends Listener {
     // Go no further if the member already has @Dead Chat.
     if (memberHasDeadChat) {
       console.log(
-        `${messageMember.user.tag} (${messageMember.id}) already has @Dead Chat.`,
+        `${messageMember.user.tag} (${messageMember.id}) already has @Dead Chat. Now the next revive can happen at ${new Date(this.canReviveAt).toLocaleTimeString()}`,
       );
       return;
     }
