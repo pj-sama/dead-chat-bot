@@ -88,31 +88,17 @@ export class DeadChat extends Listener {
       });
     }
 
-    // Check if the member already has @Dead Chat.
-    const memberHasDeadChat = messageMember.roles.cache.has(DEADCHAT_ROLE_ID);
-
-    // Go no further if the member already has @Dead Chat.
-    if (memberHasDeadChat) {
-      console.log(
-        `${messageMember.user.tag} (${messageMember.id}) already has @Dead Chat. The chat will be  at ${new Date(this.timeOfDeath).toLocaleTimeString()}`,
-      );
-      return;
-    }
-
     // Check if #🚀｜general was revived.
-    const wasChatRevived = messageCreatedTimestamp >= this.timeOfDeath;
+    const wasChatDead = messageCreatedTimestamp >= this.timeOfDeath;
 
     // Update the next revive timestamp to a random time between 15 and 60 minutes.
 
     this.timeOfDeath =
       messageCreatedTimestamp +
       Time.Minute * (Math.floor(Math.random() * 46) + 15);
-    console.log(
-      `The chat has been revived! Now the chat will be considered dead at ${new Date(this.timeOfDeath).toLocaleTimeString()}`,
-    );
 
     // Go no further if #🚀｜general was not revived.
-    if (!wasChatRevived) {
+    if (!wasChatDead) {
       console.log(
         'Main was not actually dead. Chat will be dead if no reply by ' +
           new Date(this.timeOfDeath).toLocaleTimeString(),
