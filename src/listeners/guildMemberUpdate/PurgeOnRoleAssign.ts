@@ -44,8 +44,13 @@ export class PurgeOnRoleAssign extends Listener {
       msg => msg.author.bot || msg.webhookId !== null,
     );
 
+    // If no bot message is found, delete all messages in the channel - Usually needed for initial setup after deploying
     if (!botMessage) {
-      console.log('Bot message not found in channel');
+      console.log('No bot message found, deleting all messages in the channel');
+      await (channel as TextChannel).bulkDelete(
+        messages.map(m => m.id),
+        true,
+      );
       return;
     }
 
