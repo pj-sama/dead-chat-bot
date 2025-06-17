@@ -32,49 +32,23 @@ export class PurgeOnRoleAssign extends Listener {
       console.log('Channel not found:', this.CHANNEL_ID);
       return;
     }
+
     if (!channel.isTextBased() || !(channel instanceof TextChannel)) {
-      console.log('Channel is not a text channel:', channel.id);
+      console.log(
+        'Channel is not a text channel:',
+        'id' in channel ? channel.id : 'unknown',
+      );
       return;
     }
 
     const messages = await channel.messages.fetch({limit: 100});
     console.log(`Fetched ${messages.size} messages from channel ${channel.id}`);
 
-    const botMessage = messages.find(
-      msg => msg.author.bot || msg.webhookId !== null,
-    );
-
-    // If no bot message is found, delete all messages in the channel - Usually needed for initial setup after deploying
-    if (!botMessage) {
-      console.log('No bot message found, deleting all messages in the channel');
-      await (channel as TextChannel).bulkDelete(
-        messages.map(m => m.id),
-        true,
-      );
-      return;
-    }
-
-    console.log('Bot message found at timestamp:', botMessage.createdTimestamp);
-
-    // Collect all messages before and including the bot message
-    const messagesToDelete = messages.filter(
-      msg => msg.createdTimestamp <= botMessage.createdTimestamp,
-    );
-    console.log(
-      `Messages to delete (before and including bot message): ${messagesToDelete.size}`,
-    );
-
-    // Bulk delete (can only delete messages under 14 days old)
-    const deletable = messagesToDelete.filter(
-      msg => Date.now() - msg.createdTimestamp < 14 * 24 * 60 * 60 * 1000,
-    );
-    console.log(`Deletable messages (under 14 days old): ${deletable.size}`);
-
-    if (deletable.size > 0) {
-      await (channel as TextChannel).bulkDelete(deletable, true);
-      console.log('Bulk deleted messages');
+    if (messages.size > 0) {
+      await (channel as TextChannel).bulkDelete(messages, true);
+      console.log('Deleted all messages in the channel');
     } else {
-      console.log('No messages to bulk delete');
+      console.log('No messages to delete');
     }
   }
 }
