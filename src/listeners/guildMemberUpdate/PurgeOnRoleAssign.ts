@@ -12,25 +12,20 @@ export class PurgeOnRoleAssign extends Listener {
   private readonly CHANNEL_ID = process.env.SOURCE_CHANNEL_ID!;
 
   public async run(
-    oldMember: GuildMember | PartialGuildMember,
+    _oldMember: GuildMember | PartialGuildMember,
     newMember: GuildMember,
   ) {
     console.log('GuildMemberUpdate event fired');
-    console.log(
-      'Old member roles:',
-      oldMember.roles.cache.map(r => r.id),
-    );
     console.log(
       'New member roles:',
       newMember.roles.cache.map(r => r.id),
     );
 
-    const justReceivedRole =
-      !oldMember.roles.cache.has(this.TARGET_ROLE_ID) &&
-      newMember.roles.cache.has(this.TARGET_ROLE_ID);
+    // Only proceed if the member now has the target role
+    const hasRoleNow = newMember.roles.cache.has(this.TARGET_ROLE_ID);
 
-    console.log('Just received target role:', justReceivedRole);
-    if (!justReceivedRole) return;
+    console.log('Has target role now:', hasRoleNow);
+    if (!hasRoleNow) return;
 
     const channel = await newMember.guild.channels.fetch(this.CHANNEL_ID);
     if (!channel) {
