@@ -122,23 +122,26 @@ export class DeadChat extends Listener {
     // Assign @Dead Chat to the author of the message.
     const assignDeadChat = messageMember.roles.add(DEADCHAT_ROLE_ID);
 
-    // Get a list of all the users with @deadchat role, iterate through themm and remove the role from thema and log success. If there are any errors, log them too!
-    const removeDeadChat = Promise.all(
-      guildMembersWithDeadChat.map(guildMember =>
-        guildMember.roles
-          .remove(DEADCHAT_ROLE_ID)
-          .then(() => {
-            console.log(
-              `Removed @Dead Chat from ${guildMember.user.tag} (${guildMember.id})`,
-            );
-          })
-          .catch(error => {
-            console.error(
-              `Failed to remove @Dead Chat from ${guildMember.user.tag} (${guildMember.id}): ${error.message}`,
-            );
-          }),
-      ),
-    );
+    // Get a list of all the users with @deadchat role, iterate through them and remove the role from them and log success. If there are any errors, log them too!
+    const removeDeadChatPromises: Promise<void>[] = [];
+    guildMembersWithDeadChat.forEach(guildMember => {
+      // Skip removing the role from the message author
+      if (guildMember.id === messageMember.id) return;
+      const promise = guildMember.roles
+        .remove(DEADCHAT_ROLE_ID)
+        .then(() => {
+          console.log(
+            `Removed @Dead Chat from ${guildMember.user.tag} (${guildMember.id})`,
+          );
+        })
+        .catch(error => {
+          console.error(
+            `Failed to remove @Dead Chat from ${guildMember.user.tag} (${guildMember.id}): ${error.message}`,
+          );
+        });
+      removeDeadChatPromises.push(promise);
+    });
+    const removeDeadChat = Promise.all(removeDeadChatPromises);
 
     // Wait for both of the above tasks to complete.
     await Promise.all([assignDeadChat, removeDeadChat]);
